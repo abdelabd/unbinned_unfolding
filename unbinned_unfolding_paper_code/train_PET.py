@@ -1,10 +1,14 @@
-from omnifold import DataLoader, MultiFold, PET
+
 import h5py as h5
 import argparse 
 import os 
 import numpy as np
 import horovod.tensorflow.keras as hvd
 hvd.init()
+
+# local 
+from omnifold import DataLoader, MultiFold, PET
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Train a PET model using Pythia and Herwig data.")
     parser.add_argument("--data_dir", type=str, default="/global/homes/r/rmilton/m3246/rmilton/omnifold_paper_plots/datasets/", help="Folder containing input files")
