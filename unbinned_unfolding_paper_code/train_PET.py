@@ -11,8 +11,8 @@ from omnifold import DataLoader, MultiFold, PET
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Train a PET model using Pythia and Herwig data.")
-    parser.add_argument("--data_dir", type=str, default="/global/homes/r/rmilton/m3246/rmilton/omnifold_paper_plots/datasets/", help="Folder containing input files")
-    parser.add_argument("--save_dir", type=str, default="/global/homes/r/rmilton/m3246/rmilton/omnifold_paper_plots/unfolding/weights/", help="Folder to store trained model weights")
+    parser.add_argument("--data_dir", type=str, default="/pscratch/sd/a/aelabd/omnifold_examples/ryans_way/OmniLearn/data/", help="Folder containing input files")
+    parser.add_argument("--save_dir", type=str, default="/pscratch/sd/a/aelabd/omnifold_examples/ryans_way/unbinned_unfolding/unbinned_unfolding_paper_code/hist_weights/", help="Folder to store trained model weights")
     parser.add_argument("--num_data", type=int, default=-1, help="Number of data to train with")
     parser.add_argument("--num_iterations", type=int, default=10, help="Number of iterations to use during training")
     parser.add_argument("--start_N", type=int, default=0, help="Number of iteration to start with")
