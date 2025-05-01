@@ -3,10 +3,12 @@ from matplotlib import pyplot as plt
 import copy
 import os
 import yaml
+import json
 import h5py as h5
 import gzip
 import pickle
 import argparse 
+from tabulate import tabulate
 
 # Locals 
 from omnifold import DataLoader, MultiFold, MLP, PET, SetStyle, HistRoutine
@@ -23,6 +25,12 @@ def reweight(events,model,batch_size=None):
     weights = f / (1. - f)  # this is the crux of the reweight, approximates likelihood ratio
     weights = np.nan_to_num(weights[:,0],posinf=1)
     return weights
+
+def compute_delta(p, q):
+    numerator = (p-q)**2
+    denominator = p+q+1e-50
+    delta = 1e3*(1/2)*np.sum(numerator/denominator)
+    return delta
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Make predictions using trained PET model")
@@ -57,11 +65,9 @@ def main():
     synth_data_particles = synth_all['reco'][:config['num_data']]
     synth_data_observables = synth_all['reco_subs'][:config['num_data']]
 
-    obs_mc_gen = {}
-    obs_mc_sim = {}
-    for i, k in enumerate(OBSERVABLES):
-        obs_mc_gen[k] = synth_gen_observables[:,i]
-        obs_mc_sim[k] = synth_data_observables[:,i]
+    synth_gen_observables = {k: synth_gen_observables[:,i] for i, k in enumerate(OBSERVABLES)}
+    synth_data_observables = {k: synth_data_observables[:,i] for i, k in enumerate(OBSERVABLES)}
+
 
     NATURE_DATA_PATH =  os.path.join(args.data_dir, "test_herwig.h5") 
     nature_all = h5.File(NATURE_DATA_PATH, 'r')
@@ -70,19 +76,17 @@ def main():
     nature_data_particles = nature_all['reco'][:config['num_data']]
     nature_data_observables = nature_all['reco_subs'][:config['num_data']]
 
-    obs_nature_gen = {}
-    obs_nature_sim = {}
-    for i, k in enumerate(OBSERVABLES):
-        obs_nature_gen[k] = nature_gen_observables[:,i]
-        obs_nature_sim[k] = nature_data_observables[:,i]
+    nature_gen_observables = {k: nature_gen_observables[:,i] for i, k in enumerate(OBSERVABLES)}
+    nature_data_observables = {k: nature_data_observables[:,i] for i, k in enumerate(OBSERVABLES)}
+
 
 
     ############################### Compute GEN, DATA, and TRUTH histograms ###############################
     for obkey, ob in obs.items():
-        ob['genobs'] = obs_mc_gen[obkey]
-        ob['simobs'] = obs_mc_sim[obkey]
-        ob['truthobs'] = obs_nature_gen[obkey]
-        ob['dataobs'] = obs_nature_sim[obkey]
+        ob['genobs'] = synth_gen_observables[obkey]
+        ob['simobs'] = synth_data_observables[obkey]
+        ob['truthobs'] = nature_gen_observables[obkey]
+        ob['dataobs'] = nature_data_observables[obkey]
 
         # setup bins
         ob['bins_det'] = np.linspace(ob['xlim'][0], ob['xlim'][1], ob['nbins_det']+1)
@@ -114,13 +118,12 @@ def main():
 
     
     ############################### Load OmniFold weights ###############################
-    of_weights_parent_dir = os.path.join(RUN_DIR, "predictions")
-    of_weights_path = os.listdir(of_weights_parent_dir)[0]
-    with gzip.open(os.path.join(of_weights_parent_dir, of_weights_path), "r") as f:
+    of_weights_dir = os.path.join(RUN_DIR, "predictions")
+    with gzip.open(os.path.join(of_weights_dir, "test_pythia_final_reweight.pickle.gz"), "r") as f:
         of_weights = pickle.load(f)
     of_weights = of_weights["PET_weights"]
-    
-    # ############################### Plot, save figures ###############################
+
+    ################################ Plot, save figures ###############################
     for i,(obkey,ob) in enumerate(obs.items()):
         
         # get the styled axes on which to plot
@@ -182,7 +185,49 @@ def main():
         os.makedirs(fig_dir, exist_ok=True)
         fig.savefig(os.path.join(fig_dir,f"{obkey}.pdf"), bbox_inches='tight')
         plt.close()
+
+    ################################ Compute triangular discriminant ###############################
     
+    OBSERVABLES = ['Mass', 'Mult', 'Width',  'SDMass', 'Tau21', 'zg'] # reordered to match Table 1 in the paper
+
+    # Compute the 'true' probability distributions, q
+    q_dict = {}
+    for k in OBSERVABLES:
+        q_dict[k] = obs[k]["truth_hist"].copy()/sum(obs[k]["truth_hist"])
+
+    # Compute the IBU probability distribution, p_ibu
+    p_ibu_dict = {}
+    for k in OBSERVABLES:
+        p_ibu_dict[k] = obs[k]["ibu_phis"][-1].copy()/sum(obs[k]["ibu_phis"][-1])
+
+    # Compute the OmniFold probability distribution, p_of
+    p_of_dict = {}
+    for k in OBSERVABLES:
+        of_histgen, of_histgen_unc = modplot.calc_hist(obs[k]['genobs'], weights=of_weights, 
+                                                        bins=obs[k]['bins_mc'], density=True)[:2]
+        p_of_dict[k] = of_histgen.copy()/sum(of_histgen)
+    
+    # Compute triangular disciminant
+    delta_dict = {"IBU": {},  "OmniFold": {}}
+    for k in OBSERVABLES:
+        delta_dict['IBU'][k] = compute_delta(p_ibu_dict[k], q_dict[k])
+        delta_dict['OmniFold'][k] = compute_delta(p_of_dict[k], q_dict[k])
+
+    # Display/save
+    headers = ["Method", "m", "M", "w", "SDMass", "t21", "zg"]
+    tri_disc_data = [
+        ["OmniFold"],
+        ["IBU"],
+    ]
+    tri_disc_data[0].extend(delta_dict["OmniFold"].values())
+    tri_disc_data[1].extend(delta_dict["IBU"].values())
+    print(tabulate(tri_disc_data, headers=headers, tablefmt="grid"))
+
+
+
+    
+    with open(os.path.join(RUN_DIR, "triangular_discriminants.json"), 'w', encoding='utf-8') as f:
+        json.dump(delta_dict, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':
