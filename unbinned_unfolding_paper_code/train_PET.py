@@ -18,6 +18,7 @@ def parse_arguments():
     parser.add_argument("--num_data", type=int, default=-1, help="Number of data to train with")
     parser.add_argument("--num_iterations", type=int, default=10, help="Number of iterations to use during training")
     parser.add_argument("--start_N", type=int, default=0, help="Number of iteration to start with")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Number of iteration to start with")
     args = parser.parse_args()
     return args
 
@@ -26,6 +27,7 @@ def main():
     num_data = flags.num_data
     itnum = flags.num_iterations
     data_dir = flags.data_dir
+    num_epochs = flags.num_epochs
     synthetic_file_path = data_dir + "train_pythia.h5"
     nature_file_path = data_dir + "train_herwig.h5"
 
@@ -64,7 +66,8 @@ def main():
         batch_size = 256,
         early_stop=3,
         rank=hvd.rank(),
-        size=hvd.size()
+        size=hvd.size(),
+        epochs = num_epochs
     )
     tic = time.time()
     omnifold_PET.Unfold()
