@@ -26,6 +26,7 @@ def parse_arguments():
     parser.add_argument("--num_heads", type=int, default=4, help="Number of transformer heads")
     parser.add_argument("--num_layers", type=int, default=4, help="Number of layers per transformer head")
     parser.add_argument("--p_dim", type=int, default=128, help="Transformer projection dimension")
+    parser.add_argument("--model-name", type=str, default="")
     args = parser.parse_args()
     return args
 
@@ -101,7 +102,7 @@ def main():
     synthetic_PET_model = PET(synthetic_gen_parts.shape[2], num_part=synthetic_gen_parts.shape[1], num_heads = config['num_heads'], num_transformer = config['num_layers'], local = True, projection_dim = config['p_dim'], K = 10)
     nature_PET_model = PET(synthetic_gen_parts.shape[2], num_part=synthetic_gen_parts.shape[1], num_heads = config['num_heads'], num_transformer = config['num_layers'], local = True, projection_dim = config['p_dim'], K = 10)
     omnifold_PET = MultiFold(
-        "PET_02_2025",
+        config['model_name'],
         model_reco = nature_PET_model,
         model_gen = synthetic_PET_model,
         data = nature_parts_dataloader,
