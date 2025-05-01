@@ -11,6 +11,9 @@ hvd.init()
 print("Number of visible GPUs {}".format(hvd.size()))
 print("Each GPU ID: {}".format(hvd.rank()))
 
+import tensorflow as tf
+tf.random.set_seed(0)
+
 # local 
 from omnifold import DataLoader, MultiFold, PET
 
@@ -111,8 +114,8 @@ def main():
         niter = config['num_iterations'],
         weights_folder = model_weights_dir,
         verbose=True,
-        batch_size = 256,
-        early_stop=3,
+        batch_size = 256, # TODO: Add to config
+        early_stop=3, # TODO: ADD to config; TODO TODO: Add lr_patience
         rank=hvd.rank(),
         size=hvd.size(),
         epochs = config['num_epochs']

@@ -15,4 +15,4 @@
 export TF_CPP_MIN_LOG_LEVEL=2
 
 module load tensorflow
-srun python train_PET.py
+srun python train_PET.py --model-name "batch"
