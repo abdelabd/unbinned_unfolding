@@ -3,9 +3,11 @@ import h5py as h5
 import argparse 
 import os 
 import numpy as np
+import time
 import horovod.tensorflow.keras as hvd
 hvd.init()
-
+print("Number of visible GPUs {}".format(hvd.size()))
+print("Each GPU ID: {}".format(hvd.rank()))
 # local 
 from omnifold import DataLoader, MultiFold, PET
 
@@ -62,9 +64,14 @@ def main():
         batch_size = 256,
         early_stop=3,
         rank=hvd.rank(),
-        size=hvd.size(),
+        size=hvd.size()
     )
+    tic = time.time()
     omnifold_PET.Unfold()
+    toc = time.time()
+    dur = toc - tic
+    if (hvd.rank())==0:
+        print(f"Unfolding: {dur//60} minutes, {dur%60} seconds")
 
 if __name__ == '__main__':
     main()
